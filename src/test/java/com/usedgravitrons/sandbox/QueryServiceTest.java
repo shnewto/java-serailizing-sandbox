@@ -43,7 +43,6 @@ class QueryServiceTest {
     void runAndCompareLiveAndSerialized() throws IOException, InterruptedException {
         TableResult tableResult = queryService.runQuery(testQuery());
         serializeQuery(tableResult, "tr_002.json");
-
         TableResult deserialized = deserializeQuery("tr_002.json");
         TableResult actual = queryService.runQuery(testQuery());
 
@@ -60,8 +59,8 @@ class QueryServiceTest {
     @Test
     void runDeserializedQuery() throws IOException {
         TableResult tableResult = deserializeQuery("tr_001.json");
-
         Map<String, String> result = queryService.tableResultToMap(tableResult);
+
         assertThat(result.size()).isEqualTo(4936);
         assertThat(result.get("ember.js")).isEqualTo("emberjs");
         assertThat(result.get("request")).isEqualTo("mikeal");
@@ -74,8 +73,8 @@ class QueryServiceTest {
     @Test
     void runQuery() throws InterruptedException {
         TableResult tableResult = queryService.runQuery(testQuery());
-
         Map<String, String> result = queryService.tableResultToMap(tableResult);
+
         assertThat(result.size()).isEqualTo(4936);
         assertThat(result.get("ember.js")).isEqualTo("emberjs");
         assertThat(result.get("request")).isEqualTo("mikeal");
@@ -91,9 +90,7 @@ class QueryServiceTest {
     }
 
     TableResult deserializeQuery(String fpath) throws IOException {
-
         TableResultHelper tableResultHelper = gson.fromJson(new String(Files.readAllBytes(Paths.get(fpath))), TableResultHelper.class);
-
         return tableResultHelper.toTableResult();
     }
 
