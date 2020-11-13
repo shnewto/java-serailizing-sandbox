@@ -3,6 +3,8 @@ package com.usedgravitrons.sandbox;
 import com.google.cloud.bigquery.BigQuery;
 import com.google.cloud.bigquery.Job;
 import com.google.cloud.bigquery.TableResult;
+import com.google.gson.Gson;
+import com.usedgravitrons.sandbox.types.TestTableResult;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -12,7 +14,11 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.core.io.Resource;
 
+import java.io.BufferedWriter;
+import java.io.FileWriter;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.stream.Stream;
@@ -24,6 +30,9 @@ import static org.junit.jupiter.api.Assertions.*;
 //@SpringBootTest(properties = "tableName=github_timeline_${random.int[1,10000]}")
 @SpringBootTest(properties = "tableName=github_timeline")
 class QueryServiceTest {
+
+    private final Gson gson = new Gson();
+
     @Autowired
     BigQuery bigQuery;
 
@@ -38,24 +47,27 @@ class QueryServiceTest {
     @Value("${tableName}")
     String tableName;
 
-//    @BeforeAll
-//    void setUp() throws IOException, ExecutionException, InterruptedException {
-//        Job _job = queryService.loadData(csvFile.getInputStream(), tableName);
-//    }
-//
-//    @AfterAll
-//    void tearDown() {
-//        bigQuery.delete(tableName);
-//    }
+    @Test
+    void runAndCompareLiveAndSerialized() throws IllegalAccessException, NoSuchFieldException, IOException, InterruptedException {
+        TableResult tableResult = queryService.runQuery(testQuery());
+        serializeQuery(tableResult, "tr_002.json");
+
+        TableResult deserialized = deserializeQuery("tr_002.json");
+        TableResult actual = queryService.runQuery(testQuery());
+
+        assertThat(deserialized).isEqualToComparingFieldByField(actual);
+        assertThat(deserialized).isExactlyInstanceOf(TableResult.class);
+    }
 
     @Test
-    void runQuery() throws InterruptedException {
-        String query = String.format("" +
-                "SELECT repository_name, repository_owner FROM %s.%s " +
-                "WHERE repository_open_issues > 10 AND repository_watchers > 10 " +
-                "GROUP BY repository_name, repository_owner;", datasetName, tableName);
+    void runAndSerializeQuery() throws InterruptedException, IOException, NoSuchFieldException, IllegalAccessException {
+        TableResult tableResult = queryService.runQuery(testQuery());
+        serializeQuery(tableResult, "tr_001.json");
+    }
 
-        TableResult tableResult = queryService.runQuery(query);
+    @Test
+    void runDeserializedQuery() throws InterruptedException, IOException {
+        TableResult tableResult = deserializeQuery("tr_001.json");
 
         Map<String, String> result = queryService.tableResultToMap(tableResult);
         assertThat(result.size()).isEqualTo(4936);
@@ -65,5 +77,38 @@ class QueryServiceTest {
         assertThat(result.get("v2ex")).isEqualTo("livid");
         assertThat(result.get("arcemu")).isEqualTo("arcemu");
         assertThat(result.get("fancyBox")).isEqualTo("fancyapps");
+    }
+
+    @Test
+    void runQuery() throws InterruptedException, IOException {
+        TableResult tableResult = queryService.runQuery(testQuery());
+
+        Map<String, String> result = queryService.tableResultToMap(tableResult);
+        assertThat(result.size()).isEqualTo(4936);
+        assertThat(result.get("ember.js")).isEqualTo("emberjs");
+        assertThat(result.get("request")).isEqualTo("mikeal");
+        assertThat(result.get("droid-fu")).isEqualTo("kaeppler");
+        assertThat(result.get("v2ex")).isEqualTo("livid");
+        assertThat(result.get("arcemu")).isEqualTo("arcemu");
+        assertThat(result.get("fancyBox")).isEqualTo("fancyapps");
+    }
+
+    void serializeQuery(TableResult tableResult, String fpath) throws IOException, NoSuchFieldException, IllegalAccessException {
+        TestTableResult testTableResult = new TestTableResult(tableResult);
+        Files.write(Paths.get(fpath), gson.toJson(testTableResult).getBytes());
+    }
+
+    TableResult deserializeQuery(String fpath) throws IOException {
+
+        TestTableResult testTableResult = gson.fromJson(new String(Files.readAllBytes(Paths.get(fpath))), TestTableResult.class);
+
+        return testTableResult.toTableResult();
+    }
+
+    private String testQuery() {
+        return String.format("" +
+                "SELECT repository_name, repository_owner FROM %s.%s " +
+                "WHERE repository_open_issues > 10 AND repository_watchers > 10 " +
+                "GROUP BY repository_name, repository_owner;", datasetName, tableName);
     }
 }
