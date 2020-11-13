@@ -1,12 +1,9 @@
 package com.usedgravitrons.sandbox;
 
 import com.google.cloud.bigquery.BigQuery;
-import com.google.cloud.bigquery.Job;
 import com.google.cloud.bigquery.TableResult;
 import com.google.gson.Gson;
-import com.usedgravitrons.sandbox.types.TestTableResult;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
+import com.usedgravitrons.sandbox.types.TableResultHelper;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,17 +11,12 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.core.io.Resource;
 
-import java.io.BufferedWriter;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.Map;
-import java.util.concurrent.ExecutionException;
-import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.*;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 //@SpringBootTest(properties = "tableName=github_timeline_${random.int[1,10000]}")
@@ -48,7 +40,7 @@ class QueryServiceTest {
     String tableName;
 
     @Test
-    void runAndCompareLiveAndSerialized() throws IllegalAccessException, NoSuchFieldException, IOException, InterruptedException {
+    void runAndCompareLiveAndSerialized() throws IOException, InterruptedException {
         TableResult tableResult = queryService.runQuery(testQuery());
         serializeQuery(tableResult, "tr_002.json");
 
@@ -60,13 +52,13 @@ class QueryServiceTest {
     }
 
     @Test
-    void runAndSerializeQuery() throws InterruptedException, IOException, NoSuchFieldException, IllegalAccessException {
+    void runAndSerializeQuery() throws InterruptedException, IOException {
         TableResult tableResult = queryService.runQuery(testQuery());
         serializeQuery(tableResult, "tr_001.json");
     }
 
     @Test
-    void runDeserializedQuery() throws InterruptedException, IOException {
+    void runDeserializedQuery() throws IOException {
         TableResult tableResult = deserializeQuery("tr_001.json");
 
         Map<String, String> result = queryService.tableResultToMap(tableResult);
@@ -80,7 +72,7 @@ class QueryServiceTest {
     }
 
     @Test
-    void runQuery() throws InterruptedException, IOException {
+    void runQuery() throws InterruptedException {
         TableResult tableResult = queryService.runQuery(testQuery());
 
         Map<String, String> result = queryService.tableResultToMap(tableResult);
@@ -93,16 +85,16 @@ class QueryServiceTest {
         assertThat(result.get("fancyBox")).isEqualTo("fancyapps");
     }
 
-    void serializeQuery(TableResult tableResult, String fpath) throws IOException, NoSuchFieldException, IllegalAccessException {
-        TestTableResult testTableResult = new TestTableResult(tableResult);
-        Files.write(Paths.get(fpath), gson.toJson(testTableResult).getBytes());
+    void serializeQuery(TableResult tableResult, String fpath) throws IOException {
+        TableResultHelper tableResultHelper = new TableResultHelper(tableResult);
+        Files.write(Paths.get(fpath), gson.toJson(tableResultHelper).getBytes());
     }
 
     TableResult deserializeQuery(String fpath) throws IOException {
 
-        TestTableResult testTableResult = gson.fromJson(new String(Files.readAllBytes(Paths.get(fpath))), TestTableResult.class);
+        TableResultHelper tableResultHelper = gson.fromJson(new String(Files.readAllBytes(Paths.get(fpath))), TableResultHelper.class);
 
-        return testTableResult.toTableResult();
+        return tableResultHelper.toTableResult();
     }
 
     private String testQuery() {

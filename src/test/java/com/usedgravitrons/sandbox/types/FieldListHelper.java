@@ -5,10 +5,10 @@ import com.google.cloud.bigquery.FieldList;
 
 import java.util.List;
 
-public class TestFieldList {
-    List<Field> fields;
+public class FieldListHelper {
+    final List<Field> fields;
 
-    TestFieldList(List<Field> fields) {
+    FieldListHelper(List<Field> fields) {
         this.fields = fields;
     }
 

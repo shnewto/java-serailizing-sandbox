@@ -2,33 +2,18 @@ package com.usedgravitrons.sandbox;
 
 import com.google.cloud.bigquery.*;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.cloud.gcp.bigquery.core.BigQueryTemplate;
 import org.springframework.stereotype.Service;
-import org.springframework.util.concurrent.ListenableFuture;
-
-import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.ExecutionException;
 
 @Service
 public class QueryService {
 
-    @Autowired
-    private BigQueryTemplate bigQueryTemplate;
+    private final BigQuery bigQuery;
 
     @Autowired
-    private BigQuery bigQuery;
-
-    public Job loadData(InputStream dataInputStream, String tableName) throws ExecutionException, InterruptedException {
-        ListenableFuture<Job> bigQueryJobFuture =
-                bigQueryTemplate.writeDataToTable(
-                        tableName,
-                        dataInputStream,
-                        FormatOptions.csv()
-                );
-
-        return bigQueryJobFuture.get();
+    public QueryService(BigQuery bigQuery) {
+        this.bigQuery = bigQuery;
     }
 
     public TableResult runQuery(String query) throws InterruptedException {
