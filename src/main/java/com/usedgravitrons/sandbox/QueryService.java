@@ -5,6 +5,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 
 @Service
 public class QueryService {
@@ -17,8 +18,18 @@ public class QueryService {
     }
 
     public TableResult runQuery(String query) throws InterruptedException {
-        QueryJobConfiguration queryJobConfiguration = QueryJobConfiguration.newBuilder(query).build();
-        return bigQuery.query(queryJobConfiguration);
+        QueryJobConfiguration queryConfig = QueryJobConfiguration.newBuilder(query).build();
+        JobId jobId = JobId.of(UUID.randomUUID().toString());
+        Job queryJob = bigQuery.create(JobInfo.newBuilder(queryConfig).setJobId(jobId).build());
+        queryJob = queryJob.waitFor();
+
+        if (queryJob == null) {
+            throw new RuntimeException("Job no longer exists");
+        } else if (queryJob.getStatus().getError() != null) {
+            throw new RuntimeException(queryJob.getStatus().getError().toString());
+        }
+
+        return queryJob.getQueryResults();
     }
 
     public Map<String, String> tableResultToMap(TableResult tableResult) {

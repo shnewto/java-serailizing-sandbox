@@ -2,8 +2,7 @@ package com.usedgravitrons.sandbox;
 
 import com.google.cloud.bigquery.BigQuery;
 import com.google.cloud.bigquery.TableResult;
-import com.google.gson.Gson;
-import com.usedgravitrons.sandbox.types.TableResultHelper;
+import com.github.shnewto.bqjson.SerDe;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,11 +18,8 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-//@SpringBootTest(properties = "tableName=github_timeline_${random.int[1,10000]}")
 @SpringBootTest(properties = "tableName=github_timeline")
 class QueryServiceTest {
-
-    private final Gson gson = new Gson();
 
     @Autowired
     BigQuery bigQuery;
@@ -42,8 +38,8 @@ class QueryServiceTest {
     @Test
     void runAndCompareLiveAndSerialized() throws IOException, InterruptedException {
         TableResult tableResult = queryService.runQuery(testQuery());
-        serializeQuery(tableResult, "tr_002.json");
-        TableResult deserialized = deserializeQuery("tr_002.json");
+        Files.write(Paths.get("tr_002.json"), SerDe.toJsonBytes(tableResult));
+        TableResult deserialized = SerDe.fromJson(Files.readAllBytes(Paths.get("tr_002.json")), TableResult.class);
         TableResult actual = queryService.runQuery(testQuery());
 
         assertThat(deserialized).isEqualToComparingFieldByField(actual);
@@ -53,12 +49,12 @@ class QueryServiceTest {
     @Test
     void runAndSerializeQuery() throws InterruptedException, IOException {
         TableResult tableResult = queryService.runQuery(testQuery());
-        serializeQuery(tableResult, "tr_001.json");
+        Files.write(Paths.get("tr_001.json"), SerDe.toJsonBytes(tableResult));
     }
 
     @Test
     void runDeserializedQuery() throws IOException {
-        TableResult tableResult = deserializeQuery("tr_001.json");
+        TableResult tableResult = SerDe.fromJson(Files.readAllBytes(Paths.get("tr_001.json")), TableResult.class);
         Map<String, String> result = queryService.tableResultToMap(tableResult);
 
         assertThat(result.size()).isEqualTo(4936);
@@ -82,16 +78,6 @@ class QueryServiceTest {
         assertThat(result.get("v2ex")).isEqualTo("livid");
         assertThat(result.get("arcemu")).isEqualTo("arcemu");
         assertThat(result.get("fancyBox")).isEqualTo("fancyapps");
-    }
-
-    void serializeQuery(TableResult tableResult, String fpath) throws IOException {
-        TableResultHelper tableResultHelper = new TableResultHelper(tableResult);
-        Files.write(Paths.get(fpath), gson.toJson(tableResultHelper).getBytes());
-    }
-
-    TableResult deserializeQuery(String fpath) throws IOException {
-        TableResultHelper tableResultHelper = gson.fromJson(new String(Files.readAllBytes(Paths.get(fpath))), TableResultHelper.class);
-        return tableResultHelper.toTableResult();
     }
 
     private String testQuery() {
